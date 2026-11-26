@@ -73,6 +73,8 @@ export interface ClassroomStatePayload {
     usesEnvPasscode: boolean;
   };
   serverNowBangkok: BangkokNowInfo;
+  realtimeMode?: 'ws' | 'polling';
+  storageMode?: 'local_fs' | 'kv' | 'ephemeral_tmp' | 'browser_local';
 }
 
 export interface BangkokNowInfo {

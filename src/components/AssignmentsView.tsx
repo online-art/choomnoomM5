@@ -33,14 +33,14 @@ async function compressImageFileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ภาพได้'));
     reader.onload = () => {
       const rawUrl = String(reader.result || '');
-      if (file.size <= 1.5 * 1024 * 1024) {
+      if (file.size <= 350 * 1024) {
         resolve(rawUrl);
         return;
       }
       const img = new Image();
       img.onerror = () => resolve(rawUrl);
       img.onload = () => {
-        const maxDim = 1600;
+        const maxDim = 1280;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           const ratio = Math.min(maxDim / width, maxDim / height);
@@ -56,7 +56,7 @@ async function compressImageFileToDataUrl(file: File): Promise<string> {
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.86));
+        resolve(canvas.toDataURL('image/jpeg', 0.84));
       };
       img.src = rawUrl;
     };

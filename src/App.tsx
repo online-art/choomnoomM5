@@ -67,15 +67,22 @@ export default function App() {
   }, []);
 
   // Fetch initial state + sync clock offset
+  const fetchServerState = useCallback(async () => {
+    const res = await fetch('/api/state', { cache: 'no-store' });
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('application/json')) {
+      throw new Error('โหลดข้อมูลห้องเรียนไม่สำเร็จ');
+    }
+    const data = (await res.json()) as ClassroomStatePayload;
+    applyServerState(data);
+    return data;
+  }, [applyServerState]);
+
   useEffect(() => {
     let active = true;
     async function loadInitial() {
       try {
-        const res = await fetch('/api/state');
-        if (!res.ok) throw new Error('โหลดข้อมูลห้องเรียนไม่สำเร็จ');
-        const data = (await res.json()) as ClassroomStatePayload;
-        if (!active) return;
-        applyServerState(data);
+        await fetchServerState();
       } catch (err) {
         if (!active) return;
         setLoadError(err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
@@ -86,13 +93,42 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [applyServerState]);
+  }, [fetchServerState]);
 
-  // WebSocket real-time connection with automatic reconnect
+  // Real-time sync: WebSocket on Node server, automatic HTTP polling on Vercel serverless
+  const realtimeMode = state?.realtimeMode;
   useEffect(() => {
+    if (!realtimeMode) return;
+
+    if (realtimeMode === 'polling') {
+      setWsConnected(true);
+      const pollTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchServerState().catch(() => {
+            // Keep existing state on transient polling error
+          });
+        }
+      }, 6000);
+      return () => {
+        window.clearInterval(pollTimer);
+      };
+    }
+
     let ws: WebSocket | null = null;
     let reconnectTimer: number | undefined;
+    let pollTimer: number | undefined;
     let disposed = false;
+    let failedAttempts = 0;
+
+    function startPollingFallback() {
+      if (pollTimer) return;
+      setWsConnected(true);
+      pollTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchServerState().catch(() => {});
+        }
+      }, 6000);
+    }
 
     function connect() {
       if (disposed) return;
@@ -100,6 +136,7 @@ export default function App() {
       ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
       ws.onopen = () => {
+        failedAttempts = 0;
         setWsConnected(true);
       };
 
@@ -122,8 +159,13 @@ export default function App() {
       };
 
       ws.onclose = () => {
-        setWsConnected(false);
+        failedAttempts += 1;
         if (!disposed) {
+          if (failedAttempts >= 2) {
+            startPollingFallback();
+            return;
+          }
+          setWsConnected(false);
           reconnectTimer = window.setTimeout(connect, 2500);
         }
       };
@@ -137,9 +179,10 @@ export default function App() {
     return () => {
       disposed = true;
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (pollTimer) window.clearInterval(pollTimer);
       ws?.close();
     };
-  }, [applyServerState]);
+  }, [realtimeMode, applyServerState, fetchServerState]);
 
   // Live Thailand clock ticker (updates every 1s)
   useEffect(() => {
@@ -328,8 +371,22 @@ export default function App() {
         )}
 
         {loadError && !loading && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-            {loadError}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setLoadError('');
+                fetchServerState().catch((err) => {
+                  setLoadError(err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                  setLoading(false);
+                });
+              }}
+              className="rounded-lg border border-red-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100"
+            >
+              ลองโหลดใหม่
+            </button>
           </div>
         )}
 
