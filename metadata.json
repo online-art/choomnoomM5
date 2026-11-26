@@ -1,0 +1,8 @@
+{
+  "name": "Remix AI Creative Classroom — ชุมนุมสร้างสรรค์ภาพด้วย AI",
+  "description": "เว็บแอปพลิเคชัน Classroom สำหรับการเช็คชื่อนักเรียนด้วยตนเอง (ทุกวันพฤหัสบดี 14:55-15:50 น. ครบ 20 สัปดาห์ เกณฑ์ 80%) การมอบหมายและส่งใบงานแนบไฟล์ภาพแบบเรียลไทม์ พร้อมสรุปคะแนน 100 คะแนน",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
